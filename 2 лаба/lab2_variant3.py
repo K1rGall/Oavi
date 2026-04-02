@@ -9,6 +9,7 @@ from PIL import Image
 
 
 VALID_EXT = {".bmp", ".png", ".jpg", ".jpeg"}
+SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def iter_input_files(path: Path) -> Iterable[Path]:
@@ -127,15 +128,15 @@ def parse_args() -> argparse.Namespace:
         "input",
         type=Path,
         nargs="?",
-        default=Path("input"),
-        help="Путь к изображению или папке с изображениями (по умолчанию: ./input)",
+        default=SCRIPT_DIR / "input",
+        help="Путь к изображению или папке с изображениями (по умолчанию: папка input рядом со скриптом)",
     )
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        default=Path("output"),
-        help="Папка для результатов (по умолчанию: ./output)",
+        default=SCRIPT_DIR / "output",
+        help="Папка для результатов (по умолчанию: папка output рядом со скриптом)",
     )
     parser.add_argument(
         "--offset",
