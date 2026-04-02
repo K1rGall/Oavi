@@ -1,0 +1,8 @@
+Variant 3: Logical 3x3 majority filter
+01.png | threshold=96
+02.png | threshold=110
+03.png | threshold=57
+04.png | threshold=117
+05.png | threshold=87
+06.png | threshold=79
+07.png | threshold=78
