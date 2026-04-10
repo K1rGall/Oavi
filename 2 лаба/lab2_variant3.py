@@ -1,5 +1,4 @@
-
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 from pathlib import Path
@@ -64,22 +63,29 @@ def rect_sum(integral: List[List[int]], x1: int, y1: int, x2: int, y2: int) -> i
     )
 
 
-def adaptive_mean_binarization_3x3(gray: Image.Image, offset: int = 0) -> Image.Image:
+def adaptive_mean_binarization(gray: Image.Image, window_size: int, offset: int = 0) -> Image.Image:
+    if window_size < 1:
+        raise ValueError("window_size must be >= 1")
+
+    # Для нечётного окна центр симметричен.
+    # Для чётного (например 50) берём 25 пикселей влево и 24 вправо.
+    left = window_size // 2
+    right = window_size - left - 1
+
     width, height = gray.size
     gray_px = gray.load()
     out = Image.new("L", (width, height))
     out_px = out.load()
 
     integral = build_integral(gray)
-    radius = 1  # 3x3
 
     for y in range(height):
-        y1 = max(0, y - radius)
-        y2 = min(height - 1, y + radius)
+        y1 = max(0, y - left)
+        y2 = min(height - 1, y + right)
 
         for x in range(width):
-            x1 = max(0, x - radius)
-            x2 = min(width - 1, x + radius)
+            x1 = max(0, x - left)
+            x2 = min(width - 1, x + right)
 
             area = (x2 - x1 + 1) * (y2 - y1 + 1)
             local_mean = rect_sum(integral, x1, y1, x2, y2) / area
@@ -99,16 +105,21 @@ def make_comparison(original: Image.Image, gray: Image.Image, binary: Image.Imag
     return canvas
 
 
-def process_file(file_path: Path, out_dir: Path, offset: int) -> None:
+def process_file(file_path: Path, out_dir: Path, window_size: int, offset: int) -> None:
     image = Image.open(file_path)
     gray = rgb_to_grayscale_manual(image)
-    binary = adaptive_mean_binarization_3x3(gray, offset=offset)
+    binary = adaptive_mean_binarization(gray, window_size=window_size, offset=offset)
     compare = make_comparison(image, gray, binary)
 
     stem = file_path.stem
     gray_path = out_dir / f"{stem}_gray.bmp"
-    binary_path = out_dir / f"{stem}_bin_v3.png"
-    compare_path = out_dir / f"{stem}_compare.png"
+
+    if window_size == 3:
+        binary_path = out_dir / f"{stem}_bin_v3.png"
+        compare_path = out_dir / f"{stem}_compare.png"
+    else:
+        binary_path = out_dir / f"{stem}_bin_v3_w{window_size}.png"
+        compare_path = out_dir / f"{stem}_compare_w{window_size}.png"
 
     gray.save(gray_path, format="BMP")
     binary.save(binary_path, format="PNG")
@@ -122,7 +133,7 @@ def process_file(file_path: Path, out_dir: Path, offset: int) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="ЛР2, вариант 3: grayscale + адаптивная бинаризация 3x3"
+        description="ЛР2, вариант 3: grayscale + адаптивная бинаризация"
     )
     parser.add_argument(
         "input",
@@ -144,6 +155,12 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Смещение порога: T = local_mean - offset (по умолчанию 0)",
     )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=3,
+        help="Размер окна адаптивного порога (например: 3, 15, 50)",
+    )
     return parser.parse_args()
 
 
@@ -152,6 +169,7 @@ def main() -> None:
     input_path = args.input
     out_dir = args.output
     offset = args.offset
+    window_size = args.window_size
 
     if not input_path.exists():
         raise SystemExit(
@@ -169,7 +187,7 @@ def main() -> None:
         )
 
     for file_path in files:
-        process_file(file_path, out_dir, offset=offset)
+        process_file(file_path, out_dir, window_size=window_size, offset=offset)
 
 
 if __name__ == "__main__":
