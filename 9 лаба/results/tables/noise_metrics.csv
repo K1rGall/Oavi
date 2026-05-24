@@ -1,0 +1,10 @@
+metric,value
+noise_ref_seconds,0.8000000000
+rms_noise_before,0.0319608561
+rms_noise_after,0.0008656646
+rms_signal_before,0.1773258123
+rms_signal_after,0.1590354723
+snr_before_db,14.8830710722
+snr_after_db,45.2828869269
+snr_gain_db,30.3998158547
+noise_reduction_db,31.3453749534
