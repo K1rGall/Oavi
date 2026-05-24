@@ -1,0 +1,45 @@
+{
+  "phrase": "ты мне нравишься с каждым днем",
+  "alphabet": [
+    "а",
+    "в",
+    "д",
+    "е",
+    "ж",
+    "и",
+    "к",
+    "м",
+    "н",
+    "р",
+    "с",
+    "т",
+    "ш",
+    "ы",
+    "ь",
+    "я"
+  ],
+  "features": [
+    "mass_norm",
+    "center_x",
+    "center_y",
+    "mu20",
+    "mu02"
+  ],
+  "distance": "euclidean_in_normalized_feature_space",
+  "closeness": "1 / (1 + distance)",
+  "base": {
+    "recognized": "тымненравишьсвсжаждымднем",
+    "truth": "тымненравишьсяскаждымднем",
+    "errors": 2,
+    "total": 25,
+    "accuracy_percent": 92.0
+  },
+  "experiment": {
+    "recognized": "тымненравишьсвсжаидымднем",
+    "truth": "тымненравишьсяскаждымднем",
+    "errors": 3,
+    "total": 25,
+    "accuracy_percent": 88.0
+  },
+  "experiment_font_size": 104
+}
