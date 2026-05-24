@@ -1,0 +1,15 @@
+﻿2026-05-24 21:43:21`t1`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet
+2026-05-24 21:43:21`t20122`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\+.wav
+2026-05-24 21:43:12`t23760`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\0.wav
+2026-05-24 21:43:13`t24646`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\1.wav
+2026-05-24 21:43:14`t24426`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\2.wav
+2026-05-24 21:43:14`t29034`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\3.wav
+2026-05-24 21:43:15`t23124`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\4.wav
+2026-05-24 21:43:16`t24716`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\5.wav
+2026-05-24 21:43:17`t19314`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\6.wav
+2026-05-24 21:43:18`t24842`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\7.wav
+2026-05-24 21:43:19`t20182`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\8.wav
+2026-05-24 21:43:20`t25022`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\alphabet\9.wav
+2026-05-24 21:43:27`t492`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\dataset_meta.json
+2026-05-24 21:43:27`t229264`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\phone.wav
+2026-05-24 21:43:27`t7`tC:\Users\Admin\Desktop\нияу\ОАВИ\10 лаба\audio\raw\phone_expected.txt

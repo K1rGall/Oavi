@@ -1,0 +1,6 @@
+﻿Speech analysis completed.
+Predicted sequence: 9031574
+Expected sequence : 9031574
+Errors            : 0
+Confidence        : 1.000
+Results directory : results

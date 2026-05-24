@@ -1,0 +1,19 @@
+{
+  "sample_rate": 16000,
+  "voice": "slt",
+  "pause_sec": 0.25,
+  "phone_sequence": "9031574",
+  "alphabet_files": [
+    "audio/raw/alphabet/0.wav",
+    "audio/raw/alphabet/1.wav",
+    "audio/raw/alphabet/2.wav",
+    "audio/raw/alphabet/3.wav",
+    "audio/raw/alphabet/4.wav",
+    "audio/raw/alphabet/5.wav",
+    "audio/raw/alphabet/6.wav",
+    "audio/raw/alphabet/7.wav",
+    "audio/raw/alphabet/8.wav",
+    "audio/raw/alphabet/9.wav",
+    "audio/raw/alphabet/+.wav"
+  ]
+}
