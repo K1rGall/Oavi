@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,6 +54,8 @@ def cyrillic_to_glagolitic(text: str) -> str:
 
 PHRASE = cyrillic_to_glagolitic(CYRILLIC_PHRASE)
 FONT_PATH = Path("C:/Windows/Fonts/seguihis.ttf")
+REFERENCE_DIR = Path("glagolitic_reference_symbols")
+REFERENCE_METADATA_CSV = REFERENCE_DIR / "symbols_metadata.csv"
 FONT_SIZE = 96
 INK_THRESHOLD = 128
 
@@ -258,31 +261,89 @@ def normalize_profile(profile: np.ndarray) -> np.ndarray:
     return profile / profile.max()
 
 
+def crop_foreground(gray: np.ndarray, ink_presence_threshold: int = 250) -> np.ndarray:
+    ys, xs = np.where(gray < ink_presence_threshold)
+    if ys.size == 0 or xs.size == 0:
+        raise RuntimeError("Reference symbol image does not contain foreground pixels.")
+    return gray[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+
+
+def load_reference_symbols(reference_dir: Path, metadata_csv: Path) -> list[tuple[int, str, Path]]:
+    if not metadata_csv.exists():
+        return []
+
+    rows: list[dict[str, str]] = []
+    for encoding in ("utf-8-sig", "utf-8"):
+        try:
+            with metadata_csv.open("r", encoding=encoding, newline="") as f:
+                rows = list(csv.DictReader(f))
+            break
+        except UnicodeDecodeError:
+            continue
+
+    symbols: list[tuple[int, str, Path]] = []
+    for row in rows:
+        cp_raw = row.get("codepoint_hex", "").strip().upper()
+        fname = row.get("filename", "").strip()
+        index_raw = row.get("index", "").strip()
+        if not (cp_raw.startswith("U+") and fname):
+            continue
+
+        path = reference_dir / fname
+        if not path.exists():
+            continue
+
+        try:
+            index = int(index_raw)
+            cp = int(cp_raw[2:], 16)
+        except ValueError:
+            continue
+        symbols.append((index, chr(cp), path))
+
+    symbols.sort(key=lambda x: x[0])
+    return symbols
+
+
 def build_alphabet_profiles(
     phrase: str,
     font_path: Path,
     font_size: int,
     threshold: int,
     out_dir: Path,
+    reference_dir: Path | None = None,
+    metadata_csv: Path | None = None,
 ) -> dict[str, dict[str, list[float]]]:
     for stale in out_dir.glob("profile_*.png"):
         stale.unlink()
 
+    symbols = []
+    if reference_dir is not None and metadata_csv is not None:
+        symbols = load_reference_symbols(reference_dir=reference_dir, metadata_csv=metadata_csv)
+
+    use_references = bool(symbols)
     alphabet = sorted(set(ch for ch in phrase.lower() if ch.strip()))
     font = ImageFont.truetype(str(font_path), font_size)
     profiles: dict[str, dict[str, list[float]]] = {}
 
-    for ch in alphabet:
-        canvas = Image.new("L", (font_size * 2, font_size * 2), color=255)
-        draw = ImageDraw.Draw(canvas)
-        bbox = draw.textbbox((0, 0), ch, font=font)
-        x = 20 - bbox[0]
-        y = 20 - bbox[1]
-        draw.text((x, y), ch, fill=0, font=font)
+    source_iter: list[tuple[str, np.ndarray]] = []
+    if use_references:
+        for _, ch, path in symbols:
+            arr = np.array(Image.open(path).convert("L"))
+            crop = crop_foreground(arr)
+            source_iter.append((ch, crop))
+    else:
+        for ch in alphabet:
+            canvas = Image.new("L", (font_size * 2, font_size * 2), color=255)
+            draw = ImageDraw.Draw(canvas)
+            bbox = draw.textbbox((0, 0), ch, font=font)
+            x = 20 - bbox[0]
+            y = 20 - bbox[1]
+            draw.text((x, y), ch, fill=0, font=font)
+            arr = np.array(canvas)
+            crop = crop_foreground(arr)
+            source_iter.append((ch, crop))
 
-        arr = np.array(canvas)
-        ys, xs = np.where(arr < 250)
-        crop = arr[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    for ch, crop in source_iter:
         fg = (crop < threshold).astype(np.uint8)
 
         h = fg.sum(axis=1).astype(float)
@@ -410,10 +471,13 @@ def main() -> None:
         font_size=FONT_SIZE,
         threshold=INK_THRESHOLD,
         out_dir=dirs["alphabet"],
+        reference_dir=root / REFERENCE_DIR,
+        metadata_csv=root / REFERENCE_METADATA_CSV,
     )
     save_profile_preview(dirs["alphabet"], dirs["alphabet"] / "08_alphabet_profiles_preview.png")
 
     write_results_json(boxes, profiles, dirs["output"] / "results.json")
+    reference_count = len(load_reference_symbols(root / REFERENCE_DIR, root / REFERENCE_METADATA_CSV))
 
     print("Done.")
     print(f"Cyrillic phrase: {CYRILLIC_PHRASE}")
@@ -421,6 +485,7 @@ def main() -> None:
     print(f"Mono BMP: {mono_bmp}")
     print(f"Detected symbols: {len(boxes)}")
     print(f"Alphabet size: {len(profiles)}")
+    print(f"Reference symbols used: {reference_count}")
     print(f"Output folder: {dirs['output']}")
 
 
