@@ -9,8 +9,50 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 
-PHRASE = "ты мне нравишься с каждым днем"
-FONT_PATH = Path("C:/Windows/Fonts/times.ttf")
+CYRILLIC_PHRASE = "ты мне нравишься с каждым днем"
+CYR_TO_GLAG = {
+    "а": "ⰰ",
+    "б": "ⰱ",
+    "в": "ⰲ",
+    "г": "ⰳ",
+    "д": "ⰴ",
+    "е": "ⰵ",
+    "ё": "ⱖ",
+    "ж": "ⰶ",
+    "з": "ⰸ",
+    "и": "ⰻ",
+    "й": "ⰺ",
+    "к": "ⰽ",
+    "л": "ⰾ",
+    "м": "ⰿ",
+    "н": "ⱀ",
+    "о": "ⱁ",
+    "п": "ⱂ",
+    "р": "ⱃ",
+    "с": "ⱄ",
+    "т": "ⱅ",
+    "у": "ⱆ",
+    "ф": "ⱇ",
+    "х": "ⱈ",
+    "ц": "ⱌ",
+    "ч": "ⱍ",
+    "ш": "ⱎ",
+    "щ": "ⱋ",
+    "ъ": "ⱏ",
+    "ы": "ⱐ",
+    "ь": "ⱑ",
+    "э": "ⰵ",
+    "ю": "ⱓ",
+    "я": "ⱔ",
+}
+
+
+def cyrillic_to_glagolitic(text: str) -> str:
+    return "".join(CYR_TO_GLAG.get(ch, ch) for ch in text.lower())
+
+
+PHRASE = cyrillic_to_glagolitic(CYRILLIC_PHRASE)
+FONT_PATH = Path("C:/Windows/Fonts/seguihis.ttf")
 FONT_SIZE = 96
 INK_THRESHOLD = 128
 
@@ -223,6 +265,9 @@ def build_alphabet_profiles(
     threshold: int,
     out_dir: Path,
 ) -> dict[str, dict[str, list[float]]]:
+    for stale in out_dir.glob("profile_*.png"):
+        stale.unlink()
+
     alphabet = sorted(set(ch for ch in phrase.lower() if ch.strip()))
     font = ImageFont.truetype(str(font_path), font_size)
     profiles: dict[str, dict[str, list[float]]] = {}
@@ -252,7 +297,7 @@ def build_alphabet_profiles(
 
         fig, axes = plt.subplots(1, 3, figsize=(10, 3))
         axes[0].imshow(fg, cmap="gray_r")
-        axes[0].set_title(f"'{ch}'")
+        axes[0].set_title(f"U+{ord(ch):04X}")
         axes[0].axis("off")
 
         axes[1].plot(h_n)
@@ -278,7 +323,7 @@ def decode_profile_label(stem: str) -> str:
     token = stem.replace("profile_", "")
     if token.startswith("_u"):
         try:
-            return chr(int(token[2:], 16))
+            return f"U+{int(token[2:], 16):04X}"
         except ValueError:
             return token
     return token
@@ -371,10 +416,11 @@ def main() -> None:
     write_results_json(boxes, profiles, dirs["output"] / "results.json")
 
     print("Done.")
-    print(f"Phrase: {PHRASE}")
+    print(f"Cyrillic phrase: {CYRILLIC_PHRASE}")
+    print(f"Glagolitic phrase (escaped): {PHRASE.encode('unicode_escape').decode('ascii')}")
     print(f"Mono BMP: {mono_bmp}")
     print(f"Detected symbols: {len(boxes)}")
-    print(f"Alphabet symbols: {''.join(profiles.keys())}")
+    print(f"Alphabet size: {len(profiles)}")
     print(f"Output folder: {dirs['output']}")
 
 
