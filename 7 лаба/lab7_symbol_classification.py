@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,8 +10,52 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 
-PHRASE = "\u0442\u044b \u043c\u043d\u0435 \u043d\u0440\u0430\u0432\u0438\u0448\u044c\u0441\u044f \u0441 \u043a\u0430\u0436\u0434\u044b\u043c \u0434\u043d\u0435\u043c"
-FONT_PATH = Path("C:/Windows/Fonts/times.ttf")
+CYRILLIC_PHRASE = "\u0442\u044b \u043c\u043d\u0435 \u043d\u0440\u0430\u0432\u0438\u0448\u044c\u0441\u044f \u0441 \u043a\u0430\u0436\u0434\u044b\u043c \u0434\u043d\u0435\u043c"
+CYR_TO_GLAG = {
+    "\u0430": "\u2c30",
+    "\u0431": "\u2c31",
+    "\u0432": "\u2c32",
+    "\u0433": "\u2c33",
+    "\u0434": "\u2c34",
+    "\u0435": "\u2c35",
+    "\u0451": "\u2c56",
+    "\u0436": "\u2c36",
+    "\u0437": "\u2c38",
+    "\u0438": "\u2c3b",
+    "\u0439": "\u2c3a",
+    "\u043a": "\u2c3d",
+    "\u043b": "\u2c3e",
+    "\u043c": "\u2c3f",
+    "\u043d": "\u2c40",
+    "\u043e": "\u2c41",
+    "\u043f": "\u2c42",
+    "\u0440": "\u2c43",
+    "\u0441": "\u2c44",
+    "\u0442": "\u2c45",
+    "\u0443": "\u2c46",
+    "\u0444": "\u2c47",
+    "\u0445": "\u2c48",
+    "\u0446": "\u2c4c",
+    "\u0447": "\u2c4d",
+    "\u0448": "\u2c4e",
+    "\u0449": "\u2c4b",
+    "\u044a": "\u2c4f",
+    "\u044b": "\u2c50",
+    "\u044c": "\u2c51",
+    "\u044d": "\u2c35",
+    "\u044e": "\u2c53",
+    "\u044f": "\u2c54",
+}
+
+
+def cyrillic_to_glagolitic(text: str) -> str:
+    return "".join(CYR_TO_GLAG.get(ch, ch) for ch in text.lower())
+
+
+PHRASE = cyrillic_to_glagolitic(CYRILLIC_PHRASE).upper()
+FONT_PATH = Path("C:/Windows/Fonts/seguihis.ttf")
+REFERENCE_DIR = Path("glagolitic_reference_symbols")
+REFERENCE_METADATA_CSV = REFERENCE_DIR / "symbols_metadata.csv"
 BASE_FONT_SIZE = 96
 EXPERIMENT_FONT_DELTA = 8
 INK_THRESHOLD = 128
@@ -164,6 +209,63 @@ def extract_features(fg_symbol: np.ndarray) -> np.ndarray:
     return np.array([mass_norm, cx, cy, mu20, mu02], dtype=float)
 
 
+def crop_foreground(gray: np.ndarray, ink_presence_threshold: int = 250) -> np.ndarray:
+    ys, xs = np.where(gray < ink_presence_threshold)
+    if ys.size == 0 or xs.size == 0:
+        raise RuntimeError("Reference symbol image does not contain foreground pixels.")
+    return gray[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+
+
+def load_reference_symbols(reference_dir: Path, metadata_csv: Path) -> list[tuple[int, str, Path]]:
+    if not metadata_csv.exists():
+        return []
+
+    rows: list[dict[str, str]] = []
+    for encoding in ("utf-8-sig", "utf-8"):
+        try:
+            with metadata_csv.open("r", encoding=encoding, newline="") as f:
+                rows = list(csv.DictReader(f))
+            break
+        except UnicodeDecodeError:
+            continue
+
+    symbols: list[tuple[int, str, Path]] = []
+    for row in rows:
+        cp_raw = row.get("codepoint_hex", "").strip().upper()
+        filename = row.get("filename", "").strip()
+        index_raw = row.get("index", "").strip()
+        if not (cp_raw.startswith("U+") and filename):
+            continue
+
+        path = reference_dir / filename
+        if not path.exists():
+            continue
+
+        try:
+            index = int(index_raw)
+            cp = int(cp_raw[2:], 16)
+        except ValueError:
+            continue
+        symbols.append((index, chr(cp), path))
+
+    symbols.sort(key=lambda x: x[0])
+    return symbols
+
+
+def make_reference_features_from_references(
+    reference_dir: Path,
+    metadata_csv: Path,
+    threshold: int,
+) -> dict[str, np.ndarray]:
+    refs: dict[str, np.ndarray] = {}
+    for _, ch, path in load_reference_symbols(reference_dir, metadata_csv):
+        arr = np.array(Image.open(path).convert("L"))
+        crop = crop_foreground(arr)
+        fg = (crop < threshold).astype(np.uint8)
+        refs[ch] = extract_features(fg)
+    return refs
+
+
 def make_reference_features(alphabet: list[str], font_path: Path, font_size: int, threshold: int) -> dict[str, np.ndarray]:
     font = ImageFont.truetype(str(font_path), font_size)
     refs: dict[str, np.ndarray] = {}
@@ -216,10 +318,14 @@ def classify_symbols(
     return hypotheses, np.array(score_matrix, dtype=float)
 
 
+def codepoint_label(ch: str) -> str:
+    return f"U+{ord(ch):04X}"
+
+
 def format_hypotheses_lines(hypotheses: list[list[tuple[str, float]]]) -> list[str]:
     lines = []
     for i, ranked in enumerate(hypotheses, start=1):
-        pairs = ", ".join(f"('{ch}', {score:.4f})" for ch, score in ranked)
+        pairs = ", ".join(f"('{codepoint_label(ch)}', {score:.4f})" for ch, score in ranked)
         lines.append(f"{i}: [{pairs}]")
     return lines
 
@@ -264,9 +370,11 @@ def save_top1_grid(
         if i < len(symbols):
             pred, score = hypotheses[i][0]
             ok = pred == truth[i]
+            pred_label = codepoint_label(pred)
+            truth_label = codepoint_label(truth[i])
             ax.imshow(symbols[i], cmap="gray_r")
             ax.set_title(
-                f"#{i+1} true='{truth[i]}' pred='{pred}'\nS={score:.3f}",
+                f"#{i+1} true={truth_label} pred={pred_label}\nS={score:.3f}",
                 fontsize=8,
                 color="green" if ok else "red",
             )
@@ -288,7 +396,7 @@ def save_hypothesis_heatmap(
         return
 
     data = np.array([[row[i][1] for i in range(n)] for row in hypotheses], dtype=float)
-    labels = [f"{i + 1}:{row[0][0]}" for i, row in enumerate(hypotheses)]
+    labels = [f"{i + 1}:{codepoint_label(row[0][0])}" for i, row in enumerate(hypotheses)]
     cols = [f"Top {i + 1}" for i in range(n)]
 
     plt.figure(figsize=(n * 1.2 + 2, max(5, m * 0.25)))
@@ -370,8 +478,20 @@ def main() -> None:
     root = Path(__file__).resolve().parent
     dirs = ensure_dirs(root)
 
-    alphabet = sorted(set(ch for ch in PHRASE.replace(" ", "")))
-    references = make_reference_features(alphabet, FONT_PATH, BASE_FONT_SIZE, INK_THRESHOLD)
+    reference_symbols = load_reference_symbols(
+        root / REFERENCE_DIR,
+        root / REFERENCE_METADATA_CSV,
+    )
+    if reference_symbols:
+        references = make_reference_features_from_references(
+            reference_dir=root / REFERENCE_DIR,
+            metadata_csv=root / REFERENCE_METADATA_CSV,
+            threshold=INK_THRESHOLD,
+        )
+        alphabet = [ch for _, ch, _ in reference_symbols]
+    else:
+        alphabet = sorted(set(ch for ch in PHRASE.replace(" ", "")))
+        references = make_reference_features(alphabet, FONT_PATH, BASE_FONT_SIZE, INK_THRESHOLD)
 
     base = run_case(
         phrase=PHRASE,
@@ -395,8 +515,11 @@ def main() -> None:
     )
 
     summary = {
+        "cyrillic_phrase": CYRILLIC_PHRASE,
         "phrase": PHRASE,
         "alphabet": alphabet,
+        "alphabet_codepoints": [codepoint_label(ch) for ch in alphabet],
+        "reference_symbols_used": len(references),
         "features": ["mass_norm", "center_x", "center_y", "mu20", "mu02"],
         "distance": "euclidean_in_normalized_feature_space",
         "closeness": "1 / (1 + distance)",
@@ -410,8 +533,10 @@ def main() -> None:
     )
 
     print("Done.")
-    print(f"Phrase: {PHRASE}")
-    print(f"Alphabet ({len(alphabet)}): {''.join(alphabet)}")
+    print(f"Cyrillic phrase: {CYRILLIC_PHRASE}")
+    print(f"Glagolitic phrase (escaped): {PHRASE.encode('unicode_escape').decode('ascii')}")
+    print(f"Alphabet size: {len(alphabet)}")
+    print(f"Reference symbols used: {len(references)}")
     print(f"Base accuracy: {base['metrics']['accuracy_percent']}%")
     print(f"Experiment accuracy: {experiment['metrics']['accuracy_percent']}%")
     print(f"Output folder: {dirs['output']}")
